@@ -40,7 +40,7 @@ def process_file(file_obj, output_dir, date_label, rows_per_file=5000, prefix="B
         end = start + rows_per_file
         chunk = df.iloc[start:end]
         
-        filename = f"{prefix}{i+1} - {date_label} 5k.csv"
+        filename = f"{prefix}{i+1} - {date_label} {len(chunk)}.csv"
         file_path = os.path.join(output_dir, filename)
         
         chunk.to_csv(file_path, index=False)
