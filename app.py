@@ -47,48 +47,122 @@ if uploaded_file is not None:
     if st.session_state.generated_files:
         generated_files = st.session_state.generated_files
         
-        # Option to download all files individually via JS
-        # Note: This might be blocked by popup blockers depending on the browser
-        st.warning("⚠️ If downloads don't start, please check your browser's 'Popup Blocker' settings and allow popups for this site.")
-        if st.button("⬇️ Download All Files (Individual)"):
-            import base64
-            import streamlit.components.v1 as components
-            import json
-            
-            # Prepare file data as JSON
-            files_data = []
-            for file_path in generated_files:
-                with open(file_path, "rb") as f:
-                    data = f.read()
-                    b64 = base64.b64encode(data).decode()
-                    filename = os.path.basename(file_path)
-                    files_data.append({"filename": filename, "b64": b64, "mime": "text/csv"})
-            
-            # Embed data in JS and iterate with delays
-            files_json = json.dumps(files_data)
-            js_code = f"""
-                <script>
-                    const files = {files_json};
-                    
-                    function downloadFile(file, delay) {{
-                        setTimeout(() => {{
-                            console.log('Downloading ' + file.filename);
-                            var a = document.createElement('a');
-                            a.href = 'data:' + file.mime + ';base64,' + file.b64;
-                            a.download = file.filename;
-                            a.style.display = 'none';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                        }}, delay);
-                    }}
+        import base64
+        import streamlit.components.v1 as components
+        import json
 
-                    files.forEach((file, index) => {{
-                        downloadFile(file, index * 800); // 800ms delay between downloads
-                    }});
-                </script>
-            """
-            components.html(js_code, height=0)
+        # Prepare file data as JSON
+        files_data = []
+        for file_path in generated_files:
+            with open(file_path, "rb") as f:
+                data = f.read()
+                b64 = base64.b64encode(data).decode()
+                filename = os.path.basename(file_path)
+                files_data.append({"filename": filename, "b64": b64, "mime": "text/csv"})
+        
+        files_json = json.dumps(files_data)
+
+        # Custom HTML/JS Component
+        # 1. Styles the button (Blue/White)
+        # 2. Uses File System Access API (showDirectoryPicker) to save all files to a selected folder
+        # 3. Fallback to individual downloads if API not supported
+        components.html(f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            .download-btn {{
+                background-color: #007bff; /* Blue */
+                border: none;
+                color: white; /* White Text */
+                padding: 12px 24px;
+                text-align: center;
+                text-decoration: none;
+                display: inline-block;
+                font-size: 16px;
+                margin: 4px 2px;
+                cursor: pointer;
+                border-radius: 8px; /* Rounded Corners */
+                font-family: sans-serif;
+                transition: background-color 0.3s;
+            }}
+            .download-btn:hover {{
+                background-color: #0056b3;
+            }}
+            .status {{
+                margin-top: 10px;
+                font-family: sans-serif;
+                color: #333;
+                font-size: 14px;
+            }}
+        </style>
+        </head>
+        <body>
+            <button id="dl-btn" class="download-btn" onclick="downloadFiles()">Download Files</button>
+            <div id="status" class="status"></div>
+
+            <script>
+                const files = {files_json};
+                const statusDiv = document.getElementById('status');
+                const btn = document.getElementById('dl-btn');
+
+                async function downloadFiles() {{
+                    btn.disabled = true;
+                    btn.innerText = "Saving...";
+                    
+                    // Try to use File System Access API (Modern Browsers)
+                    if (window.showDirectoryPicker) {{
+                        try {{
+                            const dirHandle = await window.showDirectoryPicker();
+                            statusDiv.innerText = "Saving files to selected folder...";
+                            
+                            for (const file of files) {{
+                                const fileHandle = await dirHandle.getFileHandle(file.filename, {{ create: true }});
+                                const writable = await fileHandle.createWritable();
+                                
+                                // Convert Base64 to Blob
+                                const byteCharacters = atob(file.b64);
+                                const byteNumbers = new Array(byteCharacters.length);
+                                for (let i = 0; i < byteCharacters.length; i++) {{
+                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                }}
+                                const byteArray = new Uint8Array(byteNumbers);
+                                const blob = new Blob([byteArray], {{type: file.mime}});
+                                
+                                await writable.write(blob);
+                                await writable.close();
+                            }}
+                            statusDiv.innerText = "✅ All files saved successfully!";
+                            statusDiv.style.color = "green";
+                        }} catch (err) {{
+                            console.error(err);
+                            statusDiv.innerText = "❌ Error or cancelled: " + err.message;
+                            statusDiv.style.color = "red";
+                            // Fallback?
+                        }}
+                    }} else {{
+                        // Fallback for browsers without File System Access API
+                        statusDiv.innerText = "⚠️ Browser doesn't support folder selection. Downloading individually...";
+                        files.forEach((file, index) => {{
+                            setTimeout(() => {{
+                                var a = document.createElement('a');
+                                a.href = 'data:' + file.mime + ';base64,' + file.b64;
+                                a.download = file.filename;
+                                a.style.display = 'none';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            }}, index * 800);
+                        }});
+                    }}
+                    
+                    btn.disabled = false;
+                    btn.innerText = "Download Files";
+                }}
+            </script>
+        </body>
+        </html>
+        """, height=150)
 
         st.divider()
         st.write("### Individual Files")
