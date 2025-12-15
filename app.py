@@ -49,27 +49,46 @@ if uploaded_file is not None:
         
         # Option to download all files individually via JS
         # Note: This might be blocked by popup blockers depending on the browser
+        st.warning("⚠️ If downloads don't start, please check your browser's 'Popup Blocker' settings and allow popups for this site.")
         if st.button("⬇️ Download All Files (Individual)"):
             import base64
             import streamlit.components.v1 as components
+            import json
             
-            js_code = ""
+            # Prepare file data as JSON
+            files_data = []
             for file_path in generated_files:
                 with open(file_path, "rb") as f:
                     data = f.read()
                     b64 = base64.b64encode(data).decode()
                     filename = os.path.basename(file_path)
-                    mime = "text/csv"
-                    js_code += f"""
-                        var a = document.createElement('a');
-                        a.href = 'data:{mime};base64,{b64}';
-                        a.download = '{filename}';
-                        a.style.display = 'none';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                    """
-            components.html(f"<script>{js_code}</script>", height=0)
+                    files_data.append({"filename": filename, "b64": b64, "mime": "text/csv"})
+            
+            # Embed data in JS and iterate with delays
+            files_json = json.dumps(files_data)
+            js_code = f"""
+                <script>
+                    const files = {files_json};
+                    
+                    function downloadFile(file, delay) {{
+                        setTimeout(() => {{
+                            console.log('Downloading ' + file.filename);
+                            var a = document.createElement('a');
+                            a.href = 'data:' + file.mime + ';base64,' + file.b64;
+                            a.download = file.filename;
+                            a.style.display = 'none';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        }}, delay);
+                    }}
+
+                    files.forEach((file, index) => {{
+                        downloadFile(file, index * 800); // 800ms delay between downloads
+                    }});
+                </script>
+            """
+            components.html(js_code, height=0)
 
         st.divider()
         st.write("### Individual Files")
