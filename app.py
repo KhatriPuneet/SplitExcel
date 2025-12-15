@@ -3,7 +3,7 @@ import os
 import tempfile
 from file_batch import process_file, get_unique_date_dir
 
-st.title("Excel Batch Splitter")
+st.title("Excel Batch Splitter v1.0.0")
 
 st.write("Upload an Excel file to split it into smaller CSV chunks.")
 
