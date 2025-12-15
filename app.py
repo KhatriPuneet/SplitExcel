@@ -35,14 +35,41 @@ if uploaded_file is not None:
                 
                 st.success(f"Done! Created {len(generated_files)} files.")
                 
+                # Option to download all files individually via JS
+                # Note: This might be blocked by popup blockers depending on the browser
+                if st.button("⬇️ Download All Files (Individual)"):
+                    import base64
+                    import streamlit.components.v1 as components
+                    
+                    js_code = ""
+                    for file_path in generated_files:
+                        with open(file_path, "rb") as f:
+                            data = f.read()
+                            b64 = base64.b64encode(data).decode()
+                            filename = os.path.basename(file_path)
+                            mime = "text/csv"
+                            js_code += f"""
+                                var a = document.createElement('a');
+                                a.href = 'data:{mime};base64,{b64}';
+                                a.download = '{filename}';
+                                a.style.display = 'none';
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                            """
+                    components.html(f"<script>{js_code}</script>", height=0)
+
+                st.divider()
+                st.write("### Individual Files")
                 for filename in generated_files:
                     with open(filename, "rb") as f:
                         file_data = f.read()
                         st.download_button(
-                            label=f"Download {filename}",
+                            label=f"Download {os.path.basename(filename)}",
                             data=file_data,
-                            file_name=filename,
-                            mime="text/csv"
+                            file_name=os.path.basename(filename),
+                            mime="text/csv",
+                            key=filename # Unique key for each button
                         )
             except Exception as e:
                 st.error(f"An error occurred: {e}")
