@@ -48,6 +48,45 @@ def process_file(file_obj, output_dir, date_label, rows_per_file=5000, prefix="B
         
     return generated_files
 
+
+def merge_files(files, output_file="merged_output.xlsx"):
+    """
+    Merges a list of uploaded files (file-like objects or paths) into a single Excel file.
+    """
+    all_dfs = []
+    
+    for file in files:
+        try:
+            # Check extension or try to read
+            if hasattr(file, 'name'):
+                filename = file.name
+            else:
+                filename = str(file)
+                
+            if filename.lower().endswith('.csv'):
+                df = pd.read_csv(file)
+            else:
+                # Default to excel for others
+                df = pd.read_excel(file)
+            
+            all_dfs.append(df)
+        except Exception as e:
+            print(f"Error reading {filename}: {e}")
+            # Optionally raise or continue
+            
+    if not all_dfs:
+        return None
+        
+    merged_df = pd.concat(all_dfs, ignore_index=True)
+    
+    # Save to a BytesIO buffer if we want to return content, or file path if we want to save
+    # Here we will write to the given output_path if provided, or return the DF?
+    # For Streamlit, it's often easier to return the DF or save to a temp path.
+    # Let's save to the path provided relative to temp or user defined.
+    
+    merged_df.to_excel(output_file, index=False)
+    return output_file
+
 if __name__ == "__main__":
     # ---- SETTINGS ----
     input_file = "your_file.xlsx"   # change this
