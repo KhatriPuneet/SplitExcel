@@ -217,12 +217,106 @@ elif app_mode == "Merge Excel":
                     if result_path:
                         st.success(f"Files merged successfully! Saved to: {result_path}")
                         
-                        # Provide formal download button as well (optional, but good for UI)
+                        import base64
+                        import json
+                        import streamlit.components.v1 as components
+
+                        # Prepare file data for JavaScript
                         with open(result_path, "rb") as f:
                             file_data = f.read()
-                            
+                            b64 = base64.b64encode(file_data).decode()
+                        
+                        files_data = [{"filename": output_filename, "b64": b64, "mime": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}]
+                        files_json = json.dumps(files_data)
+
+                        # Reuse the custom HTML/JS Component for folder selection
+                        components.html(f"""
+                        <!DOCTYPE html>
+                        <html>
+                        <head>
+                        <style>
+                            .download-btn {{
+                                background-color: #28a745; /* Green */
+                                border: none;
+                                color: white;
+                                padding: 12px 24px;
+                                text-align: center;
+                                text-decoration: none;
+                                display: inline-block;
+                                font-size: 16px;
+                                margin: 4px 2px;
+                                cursor: pointer;
+                                border-radius: 8px;
+                                font-family: sans-serif;
+                                transition: background-color 0.3s;
+                            }}
+                            .download-btn:hover {{
+                                background-color: #218838;
+                            }}
+                            .status {{
+                                margin-top: 10px;
+                                font-family: sans-serif;
+                                color: #333;
+                                font-size: 14px;
+                            }}
+                        </style>
+                        </head>
+                        <body>
+                            <button id="dl-btn" class="download-btn" onclick="downloadFiles()">Save to Folder</button>
+                            <div id="status" class="status"></div>
+
+                            <script>
+                                const files = {files_json};
+                                const statusDiv = document.getElementById('status');
+                                const btn = document.getElementById('dl-btn');
+
+                                async function downloadFiles() {{
+                                    btn.disabled = true;
+                                    btn.innerText = "Saving...";
+                                    
+                                    if (window.showDirectoryPicker) {{
+                                        try {{
+                                            const dirHandle = await window.showDirectoryPicker();
+                                            statusDiv.innerText = "Saving file to selected folder...";
+                                            
+                                            for (const file of files) {{
+                                                const fileHandle = await dirHandle.getFileHandle(file.filename, {{ create: true }});
+                                                const writable = await fileHandle.createWritable();
+                                                
+                                                const byteCharacters = atob(file.b64);
+                                                const byteNumbers = new Array(byteCharacters.length);
+                                                for (let i = 0; i < byteCharacters.length; i++) {{
+                                                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                                                }}
+                                                const byteArray = new Uint8Array(byteNumbers);
+                                                const blob = new Blob([byteArray], {{type: file.mime}});
+                                                
+                                                await writable.write(blob);
+                                                await writable.close();
+                                            }}
+                                            statusDiv.innerText = "✅ File saved successfully!";
+                                            statusDiv.style.color = "green";
+                                        }} catch (err) {{
+                                            console.error(err);
+                                            statusDiv.innerText = "❌ Error: " + err.message;
+                                            statusDiv.style.color = "red";
+                                        }}
+                                    }} else {{
+                                        statusDiv.innerText = "⚠️ Browser doesn't support folder selection. Use the button below to download.";
+                                    }}
+                                    
+                                    btn.disabled = false;
+                                    btn.innerText = "Save to Folder";
+                                }}
+                            </script>
+                        </body>
+                        </html>
+                        """, height=150)
+
+                        st.divider()
+                        # Standard Streamlit Download Button as fallback/alternative
                         st.download_button(
-                            label="Download Merged File Again",
+                            label="Download Merged File (Standard)",
                             data=file_data,
                             file_name=output_filename,
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
