@@ -193,11 +193,19 @@ elif app_mode == "Merge Excel":
         if st.button("Merge Files"):
             with st.spinner("Merging..."):
                 try:
-                    # Determine output path: Save directly to Downloads
-                    downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+                    # Determine output path: Use local folder if available, else temp dir (for Cloud)
+                    local_target_path = "/Users/Puneetkhatri/Documents/Daily Work"
+                    if os.path.exists(local_target_path):
+                        base_merge_path = local_target_path
+                    else:
+                        base_merge_path = os.path.join(tempfile.gettempdir(), "excel_merge_output")
+                    
+                    if not os.path.exists(base_merge_path):
+                        os.makedirs(base_merge_path)
+
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                     output_filename = f"merged_output_{timestamp}.xlsx"
-                    output_path = os.path.join(downloads_path, output_filename)
+                    output_path = os.path.join(base_merge_path, output_filename)
                     
                     # Merge
                     result_path = merge_files(uploaded_files, output_path)
