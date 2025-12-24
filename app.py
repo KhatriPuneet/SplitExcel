@@ -193,10 +193,14 @@ elif app_mode == "Merge Excel":
         if st.button("Merge Files"):
             with st.spinner("Merging..."):
                 try:
-                    # Determine output path: Use local folder if available, else temp dir (for Cloud)
+                    # Determine output path: Prioritize local paths, then Downloads, then temp
                     local_target_path = "/Users/Puneetkhatri/Documents/Daily Work"
+                    downloads_path = os.path.join(os.path.expanduser("~"), "Downloads")
+                    
                     if os.path.exists(local_target_path):
                         base_merge_path = local_target_path
+                    elif os.path.exists(downloads_path):
+                        base_merge_path = downloads_path
                     else:
                         base_merge_path = os.path.join(tempfile.gettempdir(), "excel_merge_output")
                     
